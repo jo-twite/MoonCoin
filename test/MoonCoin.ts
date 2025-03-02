@@ -27,15 +27,17 @@ describe("MoonCoin", function () {
     });
   });
 
-  const parseUnits = ethers.parseUnits;
-  const totalSupply = parseUnits("1000001", 18); // Total supply: 1,000,001 MNC
-
   before(async () => {
     [deployer, recipient, spender] = await ethers.getSigners();
     const MoonCoin = await ethers.getContractFactory("MoonCoin");
     moonCoin = await MoonCoin.deploy();
     await moonCoin.deployed;
   });
+
+  const parseUnits = ethers.parseUnits;
+  const totalSupply = parseUnits("1000001", 18); // Total supply: 1,000,001 MNC
+  const zeroAddress: string = ethers.ZeroAddress;
+
 
   describe("totalSupply", function () {
     it("Should return expected total supply", async function () {
@@ -97,9 +99,9 @@ describe("MoonCoin", function () {
     });
     describe("when the recipient is the zero address", function () {
       it("should revert ", async function () {
-        await expect(moonCoin.connect(deployer).transfer(ethers.ZeroAddress, amount))
+        await expect(moonCoin.connect(deployer).transfer(zeroAddress, amount))
         .to.revertedWithCustomError(moonCoin, "ERC20InvalidReceiver")
-        .withArgs(ethers.ZeroAddress);
+        .withArgs(zeroAddress);
       })
     });
   });
@@ -115,13 +117,12 @@ describe("MoonCoin", function () {
         .withArgs(deployer.address, spender.address, approvalAmount);
     });
     it("Allowance should be updated", async () => {
-      expect(await moonCoin.allowance(deployer, spender))
+      await expect(await moonCoin.allowance(deployer, spender))
         .to.equal(approvalAmount);
     });
   });
 
   describe("transferFrom", function () {
-    const zeroAddress: string = ethers.ZeroAddress;
     const amount: bigint = parseUnits("300", 18);
 
     describe("when the recipient is not zero address", function () {
@@ -137,22 +138,22 @@ describe("MoonCoin", function () {
             ownerBalanceBefore = await moonCoin.balanceOf(deployer);
             recipientBalanceBefore = await moonCoin.balanceOf(recipient);
           });
+
           it("then succesfull transfer should emit an event", async function () {
             spenderAllowanceBefore = await moonCoin.allowance(deployer, spender);
-            const spenderAllowanceBefore2 = await moonCoin.allowance(spender, deployer);
-
             expect(await moonCoin.connect(spender).transferFrom(deployer, recipient, amount))
               .to.emit(moonCoin, "Transfer").withArgs(deployer, recipient, amount);
           });
+
           it("and deployer allowance for spender shoud decrease", async function () {
             const spenderAllowanceAfter = await moonCoin.allowance(deployer, spender);
-
             expect(spenderAllowanceAfter).to.equal(spenderAllowanceBefore - amount);
-
           });
+
           it("and owner balance shoud decrease", async function () {
             expect(await moonCoin.balanceOf(deployer)).to.equal(ownerBalanceBefore - amount);
           });
+
           it("and receiver balance shoud increase", async function () {
             const recipientBalanceAfter = await moonCoin.balanceOf(recipient);
             expect(recipientBalanceAfter)
@@ -195,9 +196,8 @@ describe("MoonCoin", function () {
       });
     });
     describe("when the spender has unlimited allowance", function () {
-      it("does not decrease the spender allowance", async function () {
+      it("successful tranferFrom does not decrease the spender allowance", async function () {
         await moonCoin.connect(deployer).approve(spender.address, ethers.MaxUint256);
-
         const allowanceBefore = await moonCoin.allowance(deployer.address, spender.address);
 
         expect(await moonCoin.connect(spender).transferFrom(deployer, recipient, amount))
